@@ -1,21 +1,27 @@
 import React, { useState } from 'react';
 import Sidebar from './components/Sidebar';
 import ChatArea from './components/ChatArea';
-import SkillPanel from './components/SkillPanel';
+import BackgroundPanel from './components/BackgroundPanel';
+import ChapterEditor from './components/ChapterEditor';
 import './App.css';
 
 function App() {
-  const [currentView, setCurrentView] = useState('chat'); // 'chat' | 'skills'
-  const [currentProject, setCurrentProject] = useState(null);
-  const [projects, setProjects] = useState([]);
+  const [currentView, setCurrentView] = useState('chat');
+  const [selectedChapter, setSelectedChapter] = useState(null);
+  const [currentBook, setCurrentBook] = useState(null);
+  const [currentVolume, setCurrentVolume] = useState(null);
 
   return (
     <div className="app">
       <Sidebar
-        projects={projects}
-        currentProject={currentProject}
-        onSelectProject={setCurrentProject}
-        onNewProject={() => setCurrentProject({ id: null, title: '新项目' })}
+        currentBook={currentBook}
+        currentVolume={currentVolume}
+        onSelectBook={setCurrentBook}
+        onSelectVolume={setCurrentVolume}
+        onSelectChapter={(chapter) => {
+          setSelectedChapter(chapter);
+          if (chapter) setCurrentView('edit');
+        }}
       />
       <main className="main-content">
         <header className="top-bar">
@@ -28,17 +34,29 @@ function App() {
               对话
             </button>
             <button
-              className={currentView === 'skills' ? 'active' : ''}
-              onClick={() => setCurrentView('skills')}
+              className={currentView === 'background' ? 'active' : ''}
+              onClick={() => setCurrentView('background')}
             >
-              Skills
+              背景
+            </button>
+            <button
+              className={currentView === 'edit' ? 'active' : ''}
+              onClick={() => setCurrentView('edit')}
+            >
+              编辑
             </button>
           </div>
         </header>
         {currentView === 'chat' ? (
-          <ChatArea project={currentProject} onSaveProject={setCurrentProject} />
+          <ChatArea book={currentBook} />
+        ) : currentView === 'background' ? (
+          <BackgroundPanel book={currentBook} />
         ) : (
-          <SkillPanel onUseSkill={(skill) => console.log('Use skill:', skill)} />
+          <ChapterEditor
+            chapter={selectedChapter}
+            bookId={currentBook?.id}
+            volumeId={currentVolume?.id}
+          />
         )}
       </main>
     </div>

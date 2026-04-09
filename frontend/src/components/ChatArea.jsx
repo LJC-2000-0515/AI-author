@@ -1,10 +1,18 @@
 import React, { useState, useRef, useEffect } from 'react';
 import './ChatArea.css';
 
-function ChatArea({ project, onSaveProject }) {
+const SKILLS = [
+  { id: 'none', name: '不使用技能' },
+  { id: 'generateChapter', name: '生成章节' },
+  { id: 'continueWriting', name: '续写章节' }
+];
+
+function ChatArea({ book }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [selectedSkill, setSelectedSkill] = useState('none');
+  const [skillParams, setSkillParams] = useState({});
   const messagesEndRef = useRef(null);
 
   const scrollToBottom = () => {
@@ -15,6 +23,26 @@ function ChatArea({ project, onSaveProject }) {
     scrollToBottom();
   }, [messages]);
 
+  const handleSkillChange = async (skillId) => {
+    setSelectedSkill(skillId);
+    if (skillId === 'none') {
+      setSkillParams({});
+      return;
+    }
+
+    // 获取技能参数信息
+    try {
+      const res = await fetch('/api/skills');
+      const skills = await res.json();
+      const skill = skills.find(s => s.name === skillId);
+      if (skill) {
+        setSkillParams(skill.parameters || {});
+      }
+    } catch (error) {
+      console.error('Failed to load skill:', error);
+    }
+  };
+
   const sendMessage = async () => {
     if (!input.trim() || loading) return;
 
@@ -24,20 +52,55 @@ function ChatArea({ project, onSaveProject }) {
     setLoading(true);
 
     try {
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: [...messages, userMessage]
-        })
-      });
+      let payload = { messages: [...messages, userMessage] };
 
-      const data = await response.json();
-      const assistantMessage = {
-        role: 'assistant',
-        content: data.choices?.[0]?.message?.content || '暂无响应'
-      };
-      setMessages(prev => [...prev, assistantMessage]);
+      if (selectedSkill !== 'none') {
+        // 根据 skill 类型构造参数
+        let skillParams = {};
+        if (selectedSkill === 'generateChapter') {
+          skillParams = { outline: input, genre: '玄幻', style: '流畅' };
+        } else if (selectedSkill === 'continueWriting') {
+          skillParams = { content: input, style: '流畅' };
+        }
+
+        // 调用 skill 接口获取 prompt
+        const skillRes = await fetch(`/api/skills/${selectedSkill}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(skillParams)
+        });
+        const skillData = await skillRes.json();
+
+        // 用 skill 生成的 prompt 调用 chat
+        const chatRes = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            messages: [{ role: 'user', content: skillData.prompt }]
+          })
+        });
+        const data = await chatRes.json();
+
+        const assistantMessage = {
+          role: 'assistant',
+          content: data.choices?.[0]?.message?.content || '暂无响应'
+        };
+        setMessages(prev => [...prev, assistantMessage]);
+      } else {
+        // 直接调用 chat
+        const response = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await response.json();
+        const assistantMessage = {
+          role: 'assistant',
+          content: data.choices?.[0]?.message?.content || '暂无响应'
+        };
+        setMessages(prev => [...prev, assistantMessage]);
+      }
     } catch (error) {
       setMessages(prev => [...prev, {
         role: 'assistant',
@@ -85,16 +148,35 @@ function ChatArea({ project, onSaveProject }) {
         <div ref={messagesEndRef} />
       </div>
       <div className="input-area">
-        <textarea
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="输入你的问题..."
-          rows={3}
-        />
-        <button onClick={sendMessage} disabled={loading || !input.trim()}>
-          发送
-        </button>
+        <div className="skill-selector">
+          <select
+            value={selectedSkill}
+            onChange={(e) => handleSkillChange(e.target.value)}
+            className="skill-dropdown"
+          >
+            {SKILLS.map(skill => (
+              <option key={skill.id} value={skill.id}>
+                {skill.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="input-row">
+          <textarea
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={selectedSkill !== 'none' ? '描述章节大纲或粘贴现有内容...' : '输入你的问题...'}
+            rows={3}
+          />
+          <button
+            className={input.trim() ? 'active' : ''}
+            onClick={sendMessage}
+            disabled={loading || !input.trim()}
+          >
+            发送
+          </button>
+        </div>
       </div>
     </div>
   );

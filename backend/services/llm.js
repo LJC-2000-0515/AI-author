@@ -2,16 +2,14 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const DOUBAO_API_URL = process.env.DOUBAO_API_URL || 'https://ark.cn-beijing.volces.com/api/v3/chat/completions';
-const DOUBAO_API_KEY = process.env.DOUBAO_API_KEY || '';
-const DOUBAO_MODEL = process.env.DOUBAO_MODEL || 'doubao-pro-32k';
+const ZHIPU_API_URL = 'https://open.bigmodel.cn/api/paas/v4/chat/completions';
+const ZHIPU_API_KEY = process.env.ZHIPU_API_KEY || '';
+const ZHIPU_MODEL = process.env.ZHIPU_MODEL || 'glm-5.1';
 
-// 调用豆包 API
-export async function callLLM(messages, model = 'doubao', res = null) {
-  // 如果没有配置 API Key，返回模拟数据用于测试
-  if (!DOUBAO_API_KEY) {
+export async function callLLM(messages, model = 'zhipu', res = null) {
+  if (!ZHIPU_API_KEY) {
     const mockResponse = {
-      content: '【演示模式】API Key 未配置，请联系管理员设置 DOUBAO_API_KEY 环境变量。\n\n要开始使用，请：\n1. 注册火山引擎账号：https://console.volcengine.com/\n2. 开通豆包模型服务\n3. 获取 API Key 并配置到 .env 文件'
+      content: '【演示模式】API Key 未配置。请在 .env 文件中设置 ZHIPU_API_KEY'
     };
 
     if (res) {
@@ -32,20 +30,21 @@ export async function callLLM(messages, model = 'doubao', res = null) {
 
   const headers = {
     'Content-Type': 'application/json',
-    'Authorization': `Bearer ${DOUBAO_API_KEY}`
+    'Authorization': `Bearer ${ZHIPU_API_KEY}`
   };
 
   const body = {
-    model: DOUBAO_MODEL,
+    model: ZHIPU_MODEL,
     messages: messages.map(m => ({
-      role: m.role === 'user' ? 'user' : 'assistant',
+      role: m.role,
       content: m.content
     })),
+    temperature: 1.0,
     stream: res !== null
   };
 
   try {
-    const response = await fetch(DOUBAO_API_URL, {
+    const response = await fetch(ZHIPU_API_URL, {
       method: 'POST',
       headers,
       body: JSON.stringify(body)
@@ -56,7 +55,6 @@ export async function callLLM(messages, model = 'doubao', res = null) {
     }
 
     if (res) {
-      // 流式响应
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
 
@@ -73,9 +71,7 @@ export async function callLLM(messages, model = 'doubao', res = null) {
             if (data !== '[DONE]') {
               try {
                 res.write(`data: ${data}\n\n`);
-              } catch (e) {
-                // 忽略写入错误
-              }
+              } catch (e) {}
             }
           }
         }

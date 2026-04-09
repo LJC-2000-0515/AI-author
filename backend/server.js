@@ -9,6 +9,7 @@ import fs from 'fs';
 import chatRouter from './routes/chat.js';
 import skillsRouter from './routes/skills.js';
 import projectsRouter from './routes/projects.js';
+import booksRouter from './routes/books.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -32,6 +33,7 @@ if (!fs.existsSync(dataDir)) {
 app.use('/api/chat', chatRouter);
 app.use('/api/skills', skillsRouter);
 app.use('/api/projects', projectsRouter);
+app.use('/api/books', booksRouter);
 
 // Serve static frontend in production
 const frontendDist = join(__dirname, '../frontend/dist');
